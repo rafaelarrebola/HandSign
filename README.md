@@ -22,7 +22,7 @@ If hands are detected the following process is started:
 
 1) Fingers are considered open if the distance of the TIP to the WRIST is smaller than the distance of the MCP to the WRIST.
 
-2) The 'Open hand' requires are fingers to be open. The 'Surf' needs the thumb and the pinky to be open. For the 'Peace' sign both the middle and index fingers should be open. Additionaly the tip of the thumb should be closer to the MCP of the middle finger than the PIP of the index finger. This constraint makes sure that the thumb finger is resting on the palm of the hand.
+2) The 'Open hand' requires all fingers to be open. The 'Surf' needs the thumb and the pinky to be open. For the 'Peace' sign both the middle and index fingers should be open. Additionaly the tip of the thumb should be closer to the MCP of the middle finger than the PIP of the index finger. This constraint makes sure that the thumb finger is resting on the palm of the hand.
 
 3) The signs are visualized by drawing each landmark from CMC to TIP and their inbetween connections. Furthermore the sign is written above the hand. 
 
