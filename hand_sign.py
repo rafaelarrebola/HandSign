@@ -79,6 +79,7 @@ def get_signs(detection_result):
 
 # Get connections between landmarks for a specific sign based on the fingers that are open
 # CMC should be given, then all others landmarks are found for that finger
+# Coordinates are rescaled according to frame shape
 def pos_connections(i, hand_landmarks, frame):
     pos_lm = [(int(hand_landmarks[i].x * frame.shape[1]), int(hand_landmarks[i].y * frame.shape[0])) for i in range(i, i + 4)]
     connections = [[(int(hand_landmarks[i].x * frame.shape[1]), int(hand_landmarks[i].y * frame.shape[0])),
