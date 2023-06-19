@@ -6,17 +6,15 @@ Created on Tue Mar  7 22:22:52 2023
 @author: rafael
 """
 
-import numpy as np
-import cv2 #as cv
+import cv2 
 import mediapipe as mp
+import os
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
-from mediapipe import solutions
-from mediapipe.framework.formats import landmark_pb2
 
-
-# Function to check if sign is detected
+# Function to check if sign is detected based on the fingers that are ope n
 def peace(fingers_open,tumb_between):
+    # Extra condition for location of thumb
   if fingers_open == [1,1,1,0,0] and tumb_between == True:
     return True
   else:
@@ -28,8 +26,8 @@ def surf(fingers_open):
   else: 
     return False
 
-def hand_open(fingers_open,tb):
-  if fingers_open == [1,1,1,1,1] :#and tb == False:
+def hand_open(fingers_open):
+  if fingers_open == [1,1,1,1,1]:
     return True
   else: 
     return False
@@ -42,7 +40,7 @@ def dist_points(l,i1,i2):
 
 def fingers_configuration(l) :
     hand_fingers = []
-    for i in range(4,24,4): # landmarks on tip of finger
+    for i in range(4,24,4): # iterate over landmarks on tip of fingers
     
     # Compute distance of Tip and MCP to the Wrist
       dist_tip =  dist_points(l,i,0) 
@@ -55,31 +53,32 @@ def fingers_configuration(l) :
         
     return hand_fingers
 
-def get_gestures(detection_result):
-  Landmarks = detection_result.hand_landmarks # get landmarks from results
-  Hands = detection_result.handedness # get Handedness 
+def get_signs(detection_result):
+  hand_landmarks_list = detection_result.hand_landmarks # get landmarks from results
+  signs = []
   
-  for l , h in zip(Landmarks,Hands):
-    
-
-    if dist_points(l,4,13) < dist_points(l,4,5): #13 of 9 
+  for l in hand_landmarks_list:
+    if dist_points(l,4,9) < dist_points(l,4,6): # Compute distance between tip thumb and (middle_MCP and index_PIP)
       tb2 = True
     else :
       tb2 = False
 
     hand_fingers = fingers_configuration(l)
-        
-    if peace(hand_fingers,tb2):
-        gestures.append('PEACE')
-    elif surf(hand_fingers):
-        gestures.append('SURF')
-    elif hand_open(hand_fingers,tb2):
-        gestures.append('HAND OPEN')
-    else:
-        gestures.append(' ')    # If hand detected but no gesture
-    
-  return gestures
 
+    #Store the found signs
+    if peace(hand_fingers,tb2):
+        signs.append('PEACE')
+    elif surf(hand_fingers):
+        signs.append('SURF')
+    elif hand_open(hand_fingers):
+        signs.append('HAND OPEN')
+    else:
+        signs.append(' ') # If hand detected but no sign
+    
+  return signs
+
+# Get connections between landmarks for a specific sign based on the fingers that are open
+# CMC should be given, then all others landmarks are found for that finger
 def pos_connections(i, hand_landmarks, frame):
     pos_lm = [(int(hand_landmarks[i].x * frame.shape[1]), int(hand_landmarks[i].y * frame.shape[0])) for i in range(i, i + 4)]
     connections = [[(int(hand_landmarks[i].x * frame.shape[1]), int(hand_landmarks[i].y * frame.shape[0])),
@@ -87,6 +86,7 @@ def pos_connections(i, hand_landmarks, frame):
                    for i in range(i, i + 3)]
     return pos_lm, connections
 
+# Draw landmarks and connections 
 def draw_points(image, positions):
     for position in positions:
         for c in position:
@@ -100,15 +100,15 @@ def draw_connections(image,connections):
             cv2.line(image,line[1],line[0],color=(255, 0, 0), thickness=2)
     return image
     
-    
-def draw_gesture(image,gestures,detection_result):
+# Compute the the landmarks positions for each sign
+def draw_sign(image,signs,detection_result):
     hand_landmarks_list = detection_result.hand_landmarks
 
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
-        gesture = gestures[idx]
+        sign = signs[idx]
         
-        if gesture == 'PEACE':
+        if sign == 'PEACE':
             
             pos_idx , con_idx = pos_connections(5,hand_landmarks,image)
             pos_middle , con_middle = pos_connections(9,hand_landmarks,image)
@@ -116,9 +116,9 @@ def draw_gesture(image,gestures,detection_result):
             draw_points(image,[pos_idx,pos_middle])
             draw_connections(image,[con_idx,con_middle])
             
-        if gesture == 'HAND OPEN':
+        if sign == 'HAND OPEN':
              
-            pos_thu , con_thu = pos_connections(1,hand_landmarks,image) ### VERANDER NAMEN
+            pos_thu , con_thu = pos_connections(1,hand_landmarks,image) 
             pos_idx , con_idx = pos_connections(5,hand_landmarks,image)
             pos_ring , con_ring = pos_connections(13,hand_landmarks,image)
             pos_pin , con_pin = pos_connections(17,hand_landmarks,image)
@@ -128,9 +128,9 @@ def draw_gesture(image,gestures,detection_result):
             
             draw_connections(image,[con_idx,con_middle,con_thu,con_ring,con_pin])
             
-        if gesture == 'SURF':
+        if sign == 'SURF':
             
-            pos_thu , con_thu = pos_connections(1,hand_landmarks,image) ### VERANDER NAMEN
+            pos_thu , con_thu = pos_connections(1,hand_landmarks,image) 
             pos_pin , con_pin = pos_connections(17,hand_landmarks,image)
             
             draw_points(image,[pos_thu,pos_pin])
@@ -141,17 +141,17 @@ def draw_gesture(image,gestures,detection_result):
             None
             
     return 
-
+  
+# Get the top left corner of the detected hand's bounding box.
 def bounding_corner(annotated_image,hand_landmarks):
-    # Get the top left corner of the detected hand's bounding box.
     height, width, _ = annotated_image.shape
     x_coordinates = [landmark.x for landmark in hand_landmarks]
     y_coordinates = [landmark.y for landmark in hand_landmarks]
     text_x = int(min(x_coordinates) * width)
-    text_y = int(min(y_coordinates) * height) - MARGIN
+    text_y = int(min(y_coordinates) * height) - 10
     return text_x,text_y
 
-def gesture(image,detection_result,gestures):
+def sign(image,detection_result,signs):
 
     hand_landmarks_list = detection_result.hand_landmarks
 
@@ -163,70 +163,102 @@ def gesture(image,detection_result,gestures):
         x_coordinates = [landmark.x for landmark in hand_landmarks]
         y_coordinates = [landmark.y for landmark in hand_landmarks]
         text_x = int(min(x_coordinates) * width)
-        text_y = int(min(y_coordinates) * height) - MARGIN
+        text_y = int(min(y_coordinates) * height) - 10
 
-        # Write gesture on the image.
-        cv2.putText(image, f"{gestures[idx]}",
+        # Write sign on the image.
+        cv2.putText(image, f"{signs[idx]}",
                     (text_x + 200, text_y), cv2.FONT_HERSHEY_DUPLEX,
-                    FONT_SIZE, HANDEDNESS_TEXT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
+                    FONT_SIZE, TEXT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
     return image
 
-# Constants for the visualization of text on the video stream
-MARGIN = 10  # pixels
-FONT_SIZE = 1.5
-FONT_THICKNESS = 3
-HANDEDNESS_TEXT_COLOR = (88, 205, 54) # vibrant green
+# In macOS still a '.DS_Store' file, thus remove it
+def folder_empty(path):
+    folder = [image for image in os.listdir(path) if image != '.DS_Store']  
+    return len(folder) == 0, folder
 
-#### werk met if landmarks is not none
+# Constants for the visualization of text on the video stream
+FONT_SIZE = 2
+FONT_THICKNESS = 3
+TEXT_COLOR = (255, 0, 0)
 
 # Create an HandLandmarker object.
 base_options = python.BaseOptions(model_asset_path='hand_landmarker.task') # Import trained model from MediaPipe
 options = vision.HandLandmarkerOptions(base_options=base_options,
                                        num_hands=2)
-# change to video ? only has reduction in a computational way
-# change number of hands?
 
 detector = vision.HandLandmarker.create_from_options(options)
 
-cap = cv2.VideoCapture(0) # Video capture object for Webcam
+# Paths to images folders
+path_images = './images'
+new_folder = './images_sign'
 
-if not cap.isOpened():
-    print("Cannot open camera")
-    exit()
+if not os.path.exists(new_folder):
+    os.makedirs(new_folder)
 
-count = 0
-fps = int(cap.get(cv2.CAP_PROP_FPS)) # FPS of Webcam
+if not os.path.exists(path_images):
+    os.makedirs(path_images)
 
-while cap.isOpened():
-    ret, frame = cap.read() # Capture video frame 
-    if not ret:
-        break
+empty, files = folder_empty(path_images)
+
+# If image folder is empty stream webcam otherwise process images for signs and store them in a new folder
+if not empty:    
+    for file in files:
+        image_path = os.path.join(path_images,file)
+           
+        # Load the input image from a numpy array to a MediaPipe's Image object
+        image = cv2.imread(image_path)
+        im_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) # Convert image to RGB (MediaPipe requirement)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=im_rgb)
     
-    # Load the input image from a numpy array to a MediaPipe's Image object
-    im_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert image to RGB (MediaPipe requirement)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=im_rgb)
-
-    # Detect hand landmarks from the input image
-    detection_result = detector.detect(mp_image)
+        # Detect hand landmarks from the input image
+        detection_result = detector.detect(mp_image)
+        
+        #Process the result. Get signs if present and visualize them
+        signs = get_signs(detection_result)
+                        
+        draw_sign(image,signs,detection_result)
+        sign(image,detection_result,signs)
+        
+        # Display the resultling frame
+        cv2.imwrite(os.path.join(new_folder,file),image)
     
-    #Process the result. Get gestures if present and visualize them
-    gestures = get_gestures(detection_result)
+else:
+    cap = cv2.VideoCapture(0) # Video capture object for Webcam
     
-    #annotated_image = draw_landmarks_on_image(mp_image.numpy_view(), detection_result)
+    if not cap.isOpened():
+        print("Cannot open camera")
+        exit()
     
-    draw_gesture(frame,gestures,detection_result)
-    gesture(frame,detection_result,gestures)
-
+    count = 0
+    fps = int(cap.get(cv2.CAP_PROP_FPS)) # FPS of Webcam
+        
+    while cap.isOpened():
+        ret, frame = cap.read() # Capture video frame 
+        if not ret:
+            break
+        # Load the input image from a numpy array to a MediaPipe's Image object
+        im_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert image to RGB (MediaPipe requirement)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=im_rgb)
     
-    # Display the resultling frame
-    cv2.imshow('frame',frame)
-
+        # Detect hand landmarks from the input image
+        detection_result = detector.detect(mp_image)
+        
+        if len(detection_result.hand_landmarks) > 0: # Only do the computation if there is a hand detected
+        
+            #Process the result. Get signs if present and visualize them
+            signs = get_signs(detection_result)
+                        
+            draw_sign(frame,signs,detection_result)
+            sign(frame,detection_result,signs)
+        
+        # Display the resultling frame
+        cv2.imshow('frame',frame)
+        
+        key = cv2.waitKey(1) 
+        if key == ord('q'):        
+            cv2.destroyAllWindows() # Destroy windows
+            cv2.waitKey(1)   # Otherwise it will not close on macOS
+            print('destroy')
+            break
     
-    key = cv2.waitKey(1) 
-    if key == ord('q'):        
-        cv2.destroyAllWindows() # Destroy windows
-        cv2.waitKey(1)   # Otherwise it will not close on macOS
-        print('destroy')
-        break
-
-cap.release()
+    cap.release()
