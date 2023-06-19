@@ -3,7 +3,7 @@
 It detects hand landmarks using MediaPipe and classifies hand gestures based on the fingers that are open. The recognized signs include "Peace", "Surf" and "Open Hand".
 
 The project includes the following files:
-- `hand_sign.py`: The main Python script that performs hand sign recognition on either images or a webcam stream. It uses cv2, mediapipe and os. 
+- `hand_sign.py`: The main Python script that performs hand sign recognition on either images or a webcam stream. It uses the following libraries, OpenCV, MediaPipe the os module. 
 - `README.md`: This file providing instructions and information about the project.
 - `hand_landmarker.task`: A model from MediaPipe for hand landmark detection
 
@@ -16,7 +16,7 @@ First a HandLandmarker object is initialized using MediaPipe and the 'hand_landm
 
 The landmarks are based on the following figure. The origin of the coordinates is in the top left corner. With the y-axis pointing downwards. 
 
-<img width="454" alt="image" src="https://github.com/rafaelarrebola/HandSign/assets/131361835/ff797303-2bc2-46ef-b3ac-2c7b0472034d"># 
+<img width="454" alt="image" src="https://github.com/rafaelarrebola/HandSign/assets/131361835/ff797303-2bc2-46ef-b3ac-2c7b0472034d">
 
 If hands are detected the following process is started: 
 
